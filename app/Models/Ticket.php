@@ -24,4 +24,9 @@ class Ticket extends Model
         'resolved_at',
         'closed_at',
     ];
+
+    public function activities()
+    {
+        return $this->hasMany(TicketActivity::class);
+    }
 }

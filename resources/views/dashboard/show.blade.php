@@ -54,6 +54,44 @@
 
     <h1>{{ $ticket->ticket_number }}</h1>
 
+    @if (in_array(auth()->user()->role, ['super_admin', 'branch_admin']))
+
+    <hr>
+
+    <h3>Assign Ticket</h3>
+
+    <form method="POST"
+          action="{{ route('dashboard.tickets.assign', $ticket) }}">
+
+        @csrf
+
+        <select name="assigned_to" required>
+
+            <option value="">
+                Select IT Support Officer
+            </option>
+
+            @foreach ($officers as $officer)
+
+                <option
+                    value="{{ $officer->id }}"
+                    @selected($ticket->assigned_to == $officer->id)
+                >
+                    {{ $officer->name }}
+                </option>
+
+            @endforeach
+
+        </select>
+
+        <button type="submit">
+            Assign Ticket
+        </button>
+
+    </form>
+
+@endif
+
     @if (session('success'))
         <div class="success">
             {{ session('success') }}
@@ -94,6 +132,16 @@
         <span class="label">Current Status:</span>
         {{ $ticket->status }}
     </div>
+
+    <div class="row">
+    <span class="label">Assigned To:</span>
+
+    @if ($ticket->assigned_to)
+        {{ \App\Models\User::find($ticket->assigned_to)->name }}
+    @else
+        Not assigned
+    @endif
+</div>
 
     <div class="row">
         <span class="label">Submitted:</span>
@@ -151,6 +199,50 @@
         </button>
 
     </form>
+
+    <hr>
+
+<h3>Activity History</h3>
+
+@if ($activities->isEmpty())
+
+    <p>No activity recorded yet.</p>
+
+@else
+
+    @foreach ($activities as $activity)
+
+        <div style="
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f5f6f8;
+            border-radius: 6px;
+        ">
+
+            <strong>{{ $activity->action }}</strong>
+
+            <br>
+
+            @if ($activity->old_value || $activity->new_value)
+                {{ $activity->old_value ?? '-' }}
+                →
+                {{ $activity->new_value ?? '-' }}
+            @endif
+
+            <br>
+
+            <small>
+                By:
+                {{ $activity->user?->name ?? 'System' }}
+                |
+                {{ $activity->created_at }}
+            </small>
+
+        </div>
+
+    @endforeach
+
+@endif
 
 </div>
 

@@ -39,9 +39,14 @@ class TicketController extends Controller
     ],
 
     'requester_email' => [
-        'required',
-        'email',
-        'max:255'
+    'required',
+    'email',
+    'max:255',
+    'regex:/^[A-Za-z0-9._%+-]+@zindagitrust\.org$/i'
+    ],
+
+    [
+    'requester_email.regex' => 'Please enter a valid Zindagi Trust email address ending in @zindagitrust.org.',
     ],
 
     'contact_number' => [

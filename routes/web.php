@@ -42,3 +42,6 @@ Route::post('/dashboard/tickets/{ticket}/status', [DashboardController::class, '
 Route::get('/dashboard/tickets/{ticket}', [DashboardController::class, 'show'])
     ->middleware('auth')
     ->name('dashboard.tickets.show');
+Route::post('/dashboard/tickets/{ticket}/assign', [DashboardController::class, 'assign'])
+    ->middleware('auth')
+    ->name('dashboard.tickets.assign');
