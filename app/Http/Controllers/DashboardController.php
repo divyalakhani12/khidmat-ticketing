@@ -107,8 +107,32 @@ class DashboardController extends Controller
 
     public function updateStatus(Request $request, Ticket $ticket)
 {
+    $this->abortUnlessAllowed($ticket);
+
+    $user = Auth::user();
+
+    if ($user->role === 'it_support') {
+        $allowedStatuses = [
+            'In Progress',
+            'On Hold',
+            'Resolved',
+        ];
+    } else {
+        $allowedStatuses = [
+            'New',
+            'In Progress',
+            'On Hold',
+            'Resolved',
+            'Closed',
+            'Reopened',
+        ];
+    }
+
     $validated = $request->validate([
-        'status' => 'required|in:New,Assigned,In Progress,On Hold,Resolved,Closed,Reopened',
+        'status' => [
+            'required',
+            \Illuminate\Validation\Rule::in($allowedStatuses),
+        ],
     ]);
 
     $oldStatus = $ticket->status;
@@ -117,6 +141,19 @@ class DashboardController extends Controller
     if ($oldStatus !== $newStatus) {
 
         $ticket->status = $newStatus;
+
+        if ($newStatus === 'Resolved' && !$ticket->resolved_at) {
+            $ticket->resolved_at = now();
+        }
+
+        if ($newStatus === 'Closed' && !$ticket->closed_at) {
+            $ticket->closed_at = now();
+        }
+
+        if ($newStatus === 'Reopened') {
+            $ticket->closed_at = null;
+        }
+
         $ticket->save();
 
         TicketActivity::create([

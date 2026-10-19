@@ -158,41 +158,59 @@
         @csrf
 
         <select name="status">
-            <option value="New"
-                @selected($ticket->status === 'New')>
-                New
-            </option>
 
-            <option value="Assigned"
-                @selected($ticket->status === 'Assigned')>
-                Assigned
-            </option>
+    @if (auth()->user()->role === 'it_support')
 
-            <option value="In Progress"
-                @selected($ticket->status === 'In Progress')>
-                In Progress
-            </option>
+        <option value="In Progress"
+            @selected($ticket->status === 'In Progress')>
+            In Progress
+        </option>
 
-            <option value="On Hold"
-                @selected($ticket->status === 'On Hold')>
-                On Hold
-            </option>
+        <option value="On Hold"
+            @selected($ticket->status === 'On Hold')>
+            On Hold
+        </option>
 
-            <option value="Resolved"
-                @selected($ticket->status === 'Resolved')>
-                Resolved
-            </option>
+        <option value="Resolved"
+            @selected($ticket->status === 'Resolved')>
+            Resolved
+        </option>
 
-            <option value="Closed"
-                @selected($ticket->status === 'Closed')>
-                Closed
-            </option>
+    @else
 
-            <option value="Reopened"
-                @selected($ticket->status === 'Reopened')>
-                Reopened
-            </option>
-        </select>
+        <option value="New"
+            @selected($ticket->status === 'New')>
+            New
+        </option>
+
+        <option value="In Progress"
+            @selected($ticket->status === 'In Progress')>
+            In Progress
+        </option>
+
+        <option value="On Hold"
+            @selected($ticket->status === 'On Hold')>
+            On Hold
+        </option>
+
+        <option value="Resolved"
+            @selected($ticket->status === 'Resolved')>
+            Resolved
+        </option>
+
+        <option value="Closed"
+            @selected($ticket->status === 'Closed')>
+            Closed
+        </option>
+
+        <option value="Reopened"
+            @selected($ticket->status === 'Reopened')>
+            Reopened
+        </option>
+
+    @endif
+
+</select>
 
         <button type="submit">
             Update Status

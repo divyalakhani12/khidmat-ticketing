@@ -2,26 +2,24 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Branch;
+use Illuminate\Database\Seeder;
 
 class BranchSeeder extends Seeder
 {
     public function run(): void
     {
-        Branch::create([
-            'name' => 'Head Office',
-            'is_active' => true,
-        ]);
+        $branches = [
+            'Head Office',
+            'School 1',
+            'School 2',
+        ];
 
-        Branch::create([
-            'name' => 'School 1',
-            'is_active' => true,
-        ]);
-
-        Branch::create([
-            'name' => 'School 2',
-            'is_active' => true,
-        ]);
+        foreach ($branches as $branch) {
+            Branch::firstOrCreate(
+                ['name' => $branch],
+                ['is_active' => true]
+            );
+        }
     }
 }

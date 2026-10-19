@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
 {
@@ -15,7 +16,7 @@ class UserSeeder extends Seeder
         $school2 = Branch::where('name', 'School 2')->value('id');
 
         $users = [
-            // name, email, role, branch
+            // name, email, role, branch_id
             ['Super Admin', 'super@zindagitrust.org', 'super_admin', null],
 
             ['Head Office Admin', 'ho.admin@zindagitrust.org', 'branch_admin', $headOffice],
@@ -32,7 +33,7 @@ class UserSeeder extends Seeder
                 ['email' => $email],
                 [
                     'name' => $name,
-                    'password' => 'password',
+                    'password' => Hash::make('password'),
                     'role' => $role,
                     'branch_id' => $branchId,
                 ]
