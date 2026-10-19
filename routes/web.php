@@ -39,6 +39,14 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware('auth')
     ->name('dashboard');
 
+Route::post('/dashboard/tickets/{ticket}/priority', [DashboardController::class, 'updatePriority'])
+    ->middleware('auth')
+    ->name('dashboard.tickets.priority');
+
+Route::post('/dashboard/tickets/{ticket}/transfer', [DashboardController::class, 'transferBranch'])
+    ->middleware('auth')
+    ->name('dashboard.tickets.transfer');
+
 Route::post('/dashboard/tickets/{ticket}/status', [DashboardController::class, 'updateStatus'])
     ->middleware('auth')
     ->name('dashboard.tickets.status');

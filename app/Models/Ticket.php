@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Ticket extends Model
 {
+    protected $casts = [
+    'due_at' => 'datetime',
+    'resolved_at' => 'datetime',
+    'closed_at' => 'datetime',
+];
+
     protected $fillable = [
         'ticket_number',
         'tracking_token',
