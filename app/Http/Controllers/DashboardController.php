@@ -7,6 +7,9 @@ use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\TicketComment;
+use App\Models\TicketAttachment;
+use Illuminate\Support\Facades\Storage;
 
 class DashboardController extends Controller
 {
@@ -48,10 +51,15 @@ class DashboardController extends Controller
         }
 
         $officers = User::where('role', 'it_support')
-            ->where('branch_id', $ticket->branch_id)
+            ->orderBy('name')
             ->get();
 
         $activities = $ticket->activities()
+            ->with('user')
+            ->latest()
+            ->get();
+        
+        $comments = $ticket->comments()
             ->with('user')
             ->latest()
             ->get();
@@ -59,8 +67,42 @@ class DashboardController extends Controller
         return view('dashboard.show', compact(
             'ticket',
             'officers',
-            'activities'
+            'activities',
+            'comments'
         ));
+    }
+
+        public function addComment(Request $request, Ticket $ticket)
+    {
+        $this->abortUnlessAllowed($ticket);
+
+        $validated = $request->validate([
+            'body' => 'required|string|max:2000',
+        ]);
+
+        TicketComment::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => Auth::id(),
+            'body' => $validated['body'],
+            'is_public' => $request->boolean('is_public'),
+        ]);
+
+        return redirect()
+            ->route('dashboard.tickets.show', $ticket)
+            ->with('success', 'Comment added.');
+    }
+
+    private function abortUnlessAllowed(Ticket $ticket): void
+    {
+        $user = Auth::user();
+
+        if ($user->role === 'branch_admin' && $ticket->branch_id !== $user->branch_id) {
+            abort(403);
+        }
+
+        if ($user->role === 'it_support' && $ticket->assigned_to !== $user->id) {
+            abort(403);
+        }
     }
 
     public function updateStatus(Request $request, Ticket $ticket)
@@ -91,6 +133,16 @@ class DashboardController extends Controller
         ->with('success', 'Ticket status updated successfully.');
 }
 
+public function downloadAttachment(Ticket $ticket, TicketAttachment $attachment)
+    {
+        $this->abortUnlessAllowed($ticket);
+
+        abort_unless($attachment->ticket_id === $ticket->id, 404);
+        abort_unless(Storage::exists($attachment->path), 404);
+
+        return Storage::download($attachment->path, $attachment->original_name);
+    }
+
     public function assign(Request $request, Ticket $ticket)
 {
     $user = Auth::user();
@@ -105,7 +157,7 @@ class DashboardController extends Controller
 
     $officer = User::where('id', $validated['assigned_to'])
         ->where('role', 'it_support')
-        ->where('branch_id', $ticket->branch_id)
+        #->where('branch_id', $ticket->branch_id)
         ->firstOrFail();
 
     $oldOfficer = $ticket->assigned_to

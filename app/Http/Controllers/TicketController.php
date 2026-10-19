@@ -6,8 +6,11 @@ use App\Models\Branch;
 use App\Models\Category;
 use App\Models\Department;
 use App\Models\Ticket;
+use App\Models\TicketAttachment;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+
 
 class TicketController extends Controller
 {
@@ -31,68 +34,57 @@ class TicketController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-    'requester_name' => [
-        'required',
-        'string',
-        'max:255',
-        "regex:/^[A-Za-z\s'-]+$/"
-    ],
+            'requester_name' => [
+                'required',
+                'string',
+                'max:255',
+                "regex:/^[A-Za-z\s'-]+$/",
+            ],
+            'requester_email' => [
+                'required',
+                'email',
+                'max:255',
+                'regex:/^[A-Za-z0-9._%+-]+@zindagitrust\.org$/i',
+            ],
+            'contact_number' => [
+                'nullable',
+                'regex:/^[0-9+\-\s()]{7,20}$/',
+            ],
+            'department_id' => ['nullable', 'exists:departments,id'],
+            'branch_id' => ['required', 'exists:branches,id'],
+            'category_id' => ['required', 'exists:categories,id'],
+            'priority' => ['required', 'in:Low,Medium,High,Critical'],
+            'subject' => ['required', 'string', 'max:255'],
+            'description' => ['required', 'string', 'min:10', 'max:5000'],
+            'attachments' => ['nullable', 'array', 'max:5'],
+            'attachments.*' => ['file', 'mimes:jpg,jpeg,png,pdf,docx,xlsx,txt', 'max:5120'],
+            
+        ], [
+            'requester_email.regex' => 'Please enter a valid Zindagi Trust email address ending in @zindagitrust.org.',
+        ]);
 
-    'requester_email' => [
-    'required',
-    'email',
-    'max:255',
-    'regex:/^[A-Za-z0-9._%+-]+@zindagitrust\.org$/i'
-    ],
+        unset($validated['attachments']);
 
-    [
-    'requester_email.regex' => 'Please enter a valid Zindagi Trust email address ending in @zindagitrust.org.',
-    ],
 
-    'contact_number' => [
-        'nullable',
-        'regex:/^[0-9+\-\s()]{7,20}$/'
-    ],
-
-    'department_id' => [
-        'nullable',
-        'exists:departments,id'
-    ],
-
-    'branch_id' => [
-        'required',
-        'exists:branches,id'
-    ],
-
-    'category_id' => [
-        'required',
-        'exists:categories,id'
-    ],
-
-    'priority' => [
-        'required',
-        'in:Low,Medium,High,Critical'
-    ],
-
-    'subject' => [
-        'required',
-        'string',
-        'max:255'
-    ],
-
-    'description' => [
-        'required',
-        'string',
-        'min:10',
-        'max:5000'
-    ],
-]);
         $ticket = Ticket::create([
             ...$validated,
             'ticket_number' => 'ZT-' . now()->format('Ymd') . '-' . strtoupper(Str::random(5)),
             'tracking_token' => Str::random(64),
             'status' => 'New',
         ]);
+
+        foreach ($request->file('attachments', []) as $file) {
+            $size = $file->getSize();
+            $path = $file->store('attachments/' . $ticket->id);
+
+            $ticket->attachments()->create([
+                'path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getClientMimeType(),
+                'size' => $size,
+            ]);
+        }
+
         session(['ticket_submitted' => true]);
 
         return redirect()->route('tickets.success', $ticket);
@@ -110,8 +102,31 @@ public function resetForm()
     return redirect()->route('tickets.create');
 }
 
-    public function success(Ticket $ticket)
+public function success(Ticket $ticket)
+{
+    return view('tickets.success', compact('ticket'));
+}
+
+    public function track(Ticket $ticket)
     {
-        return view('tickets.success', compact('ticket'));
+        $updates = $ticket->activities()
+            ->where('action', 'Status Changed')
+            ->latest()
+            ->get();
+
+        $comments = $ticket->comments()
+            ->where('is_public', true)
+            ->latest()
+            ->get();
+
+        return view('tickets.track', compact('ticket', 'updates', 'comments'));
     }
+    public function downloadAttachment(Ticket $ticket, TicketAttachment $attachment)
+    {
+        abort_unless($attachment->ticket_id === $ticket->id, 404);
+        abort_unless(Storage::exists($attachment->path), 404);
+
+        return Storage::download($attachment->path, $attachment->original_name);
+    }
+
 }

@@ -17,6 +17,10 @@
         <strong>{{ $ticket->status }}</strong>
     </p>
 
+    <p>
+        <a href="{{ route('tickets.track', $ticket) }}">Track this ticket</a>
+    </p>
+
     <a href="{{ route('tickets.reset') }}">
     Submit Another Ticket
     </a>

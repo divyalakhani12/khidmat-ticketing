@@ -69,7 +69,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('tickets.store') }}">
+    <form method="POST" action="{{ route('tickets.store') }}" enctype="multipart/form-data">
 
         @csrf
 
@@ -93,6 +93,18 @@
                 <option value="{{ $branch->id }}"
                     @selected(old('branch_id') == $branch->id)>
                     {{ $branch->name }}
+                </option>
+            @endforeach
+        </select>
+
+        <label>Department</label>
+        <select name="department_id">
+            <option value="">Select department</option>
+
+            @foreach ($departments as $department)
+                <option value="{{ $department->id }}"
+                    @selected(old('department_id') == $department->id)>
+                    {{ $department->name }}
                 </option>
             @endforeach
         </select>
@@ -124,6 +136,10 @@
         <label>Description</label>
         <textarea name="description" required>{{ old('description') }}</textarea>
 
+        <label>Attachments (optional)</label>
+        <input type="file" name="attachments[]" multiple>
+        <small>Up to 5 files, 5 MB each. JPG, PNG, PDF, DOCX, XLSX or TXT.</small>
+        
         <button type="submit">
             Submit Ticket
         </button>

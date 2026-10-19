@@ -14,8 +14,11 @@ Route::get('/submit-ticket', [TicketController::class, 'create'])
 Route::post('/submit-ticket', [TicketController::class, 'store'])
     ->name('tickets.store');
 
-Route::get('/ticket-success/{ticket}', [TicketController::class, 'success'])
+Route::get('/ticket-success/{ticket:tracking_token}', [TicketController::class, 'success'])
     ->name('tickets.success');
+
+Route::get('/track/{ticket:tracking_token}', [TicketController::class, 'track'])
+    ->name('tickets.track');
 
 Route::get('/submitted', [TicketController::class, 'submitted'])
     ->name('tickets.submitted');
@@ -45,3 +48,12 @@ Route::get('/dashboard/tickets/{ticket}', [DashboardController::class, 'show'])
 Route::post('/dashboard/tickets/{ticket}/assign', [DashboardController::class, 'assign'])
     ->middleware('auth')
     ->name('dashboard.tickets.assign');
+Route::post('/dashboard/tickets/{ticket}/comments', [DashboardController::class, 'addComment'])
+    ->middleware('auth')
+    ->name('dashboard.tickets.comments');
+Route::get('/dashboard/tickets/{ticket}/attachments/{attachment}', [DashboardController::class, 'downloadAttachment'])
+    ->middleware('auth')
+    ->name('dashboard.tickets.attachments.download');
+
+Route::get('/track/{ticket:tracking_token}/attachments/{attachment}', [TicketController::class, 'downloadAttachment'])
+    ->name('tickets.track.attachments.download');

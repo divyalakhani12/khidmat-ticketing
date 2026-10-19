@@ -202,7 +202,55 @@
 
     <hr>
 
+    <h3>Attachments</h3>
+
+@forelse ($ticket->attachments as $attachment)
+    <div class="row">
+        <a href="{{ route('dashboard.tickets.attachments.download', [$ticket, $attachment]) }}">
+            {{ $attachment->original_name }}
+        </a>
+        <small>({{ number_format($attachment->size / 1024, 0) }} KB)</small>
+    </div>
+@empty
+    <p>No attachments.</p>
+@endforelse
+
+    <h3>Comments</h3>
+
+<form method="POST"
+      action="{{ route('dashboard.tickets.comments', $ticket) }}">
+    @csrf
+
+    <textarea name="body" rows="3" style="width: 100%;" required>{{ old('body') }}</textarea>
+
+    <label>
+        <input type="checkbox" name="is_public" value="1">
+        Show to requester
+    </label>
+
+    <button type="submit">Add Comment</button>
+</form>
+
+@forelse ($comments as $comment)
+    <div class="row">
+        <strong>{{ $comment->user->name }}</strong>
+        @if ($comment->is_public)
+            (visible to requester)
+        @else
+            (internal)
+        @endif
+        <br>
+        {{ $comment->body }}
+        <br>
+        <small>{{ $comment->created_at }}</small>
+    </div>
+@empty
+    <p>No comments yet.</p>
+@endforelse
+
 <h3>Activity History</h3>
+
+
 
 @if ($activities->isEmpty())
 
