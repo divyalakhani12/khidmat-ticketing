@@ -487,6 +487,15 @@ class DashboardController extends Controller
         $newPriority = $validated['priority'];
 
         if ($oldPriority !== $newPriority) {
+
+            // Recalculate the deadline from the new priority's SLA.
+            $sla = \App\Models\SlaSetting::where('priority', $newPriority)->first();
+
+            if ($sla && $sla->resolution_hours) {
+                $ticket->due_at = $ticket->created_at->copy()
+                    ->addHours($sla->resolution_hours);
+            }
+            
             $ticket->priority = $newPriority;
             $ticket->save();
 

@@ -253,6 +253,10 @@
 
         </div>
 
+        @if (auth()->user()->role === 'super_admin')
+            <a href="{{ route('dashboard.sla') }}" style="margin-right:15px;">SLA Settings</a>
+        @endif
+
         <form method="POST" action="{{ route('logout') }}">
             @csrf
 

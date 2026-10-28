@@ -3,6 +3,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\SlaSettingController;
 
 Route::get('/', function () {
     return redirect()->route('tickets.create');
@@ -65,3 +66,11 @@ Route::get('/dashboard/tickets/{ticket}/attachments/{attachment}', [DashboardCon
 
 Route::get('/track/{ticket:tracking_token}/attachments/{attachment}', [TicketController::class, 'downloadAttachment'])
     ->name('tickets.track.attachments.download');
+
+Route::get('/dashboard/settings/sla', [SlaSettingController::class, 'index'])
+    ->middleware('auth')
+    ->name('dashboard.sla');
+
+Route::post('/dashboard/settings/sla', [SlaSettingController::class, 'update'])
+    ->middleware('auth')
+    ->name('dashboard.sla.update');

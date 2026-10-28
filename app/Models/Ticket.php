@@ -10,6 +10,7 @@ class Ticket extends Model
     'due_at' => 'datetime',
     'resolved_at' => 'datetime',
     'closed_at' => 'datetime',
+    'escalated_at' => 'datetime',
 ];
 
     protected $fillable = [
@@ -29,6 +30,7 @@ class Ticket extends Model
         'due_at',
         'resolved_at',
         'closed_at',
+        'escalated_at',
     ];
 
     public function activities()
