@@ -10,15 +10,15 @@ class BranchSeeder extends Seeder
     public function run(): void
     {
         $branches = [
-            'Head Office',
-            'School 1',
-            'School 2',
+            ['name' => 'Head Office', 'type' => 'head_office'],
+            ['name' => 'School 1', 'type' => 'school'],
+            ['name' => 'School 2', 'type' => 'school'],
         ];
 
         foreach ($branches as $branch) {
-            Branch::firstOrCreate(
-                ['name' => $branch],
-                ['is_active' => true]
+            Branch::updateOrCreate(
+                ['name' => $branch['name']],
+                ['is_active' => true, 'type' => $branch['type']]
             );
         }
     }

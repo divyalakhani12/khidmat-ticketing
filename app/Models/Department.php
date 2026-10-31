@@ -9,5 +9,6 @@ class Department extends Model
     protected $fillable = [
     'name',
     'is_active',
+    'branch_type',
 ];
 }

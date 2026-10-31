@@ -86,11 +86,11 @@
                value="{{ old('contact_number') }}">
 
         <label>Branch / Location</label>
-        <select name="branch_id" required>
+        <select name="branch_id" id="branch_select" required>
             <option value="">Select branch</option>
-
             @foreach ($branches as $branch)
                 <option value="{{ $branch->id }}"
+                    data-type="{{ $branch->type }}"
                     @selected(old('branch_id') == $branch->id)>
                     {{ $branch->name }}
                 </option>
@@ -98,11 +98,11 @@
         </select>
 
         <label>Department</label>
-        <select name="department_id">
+        <select name="department_id" id="department_select">
             <option value="">Select department</option>
-
             @foreach ($departments as $department)
                 <option value="{{ $department->id }}"
+                    data-type="{{ $department->branch_type }}"
                     @selected(old('department_id') == $department->id)>
                     {{ $department->name }}
                 </option>
@@ -112,7 +112,6 @@
         <label>Issue Category</label>
         <select name="category_id" required>
             <option value="">Select category</option>
-
             @foreach ($categories as $category)
                 <option value="{{ $category->id }}"
                     @selected(old('category_id') == $category->id)>
@@ -139,7 +138,7 @@
         <label>Attachments (optional)</label>
         <input type="file" name="attachments[]" multiple>
         <small>Up to 5 files, 5 MB each. JPG, PNG, PDF, DOCX, XLSX or TXT.</small>
-        
+
         <button type="submit">
             Submit Ticket
         </button>
@@ -147,6 +146,37 @@
     </form>
 
 </div>
+
+<script>
+    const branchSelect = document.getElementById('branch_select');
+    const deptSelect = document.getElementById('department_select');
+    const deptOptions = Array.from(
+        deptSelect.querySelectorAll('option[data-type]')
+    );
+
+    function filterDepartments() {
+        const chosen = branchSelect.options[branchSelect.selectedIndex];
+        const type = chosen ? chosen.getAttribute('data-type') : '';
+
+        deptOptions.forEach(opt => {
+            const match = opt.getAttribute('data-type') === type;
+            opt.hidden = !match;
+            opt.disabled = !match;
+        });
+
+        const current = deptSelect.options[deptSelect.selectedIndex];
+        if (
+            current &&
+            current.getAttribute('data-type') &&
+            current.getAttribute('data-type') !== type
+        ) {
+            deptSelect.value = '';
+        }
+    }
+
+    branchSelect.addEventListener('change', filterDepartments);
+    filterDepartments();
+</script>
 
 </body>
 </html>

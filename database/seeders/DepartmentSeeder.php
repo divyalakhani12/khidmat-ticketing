@@ -9,7 +9,7 @@ class DepartmentSeeder extends Seeder
 {
     public function run(): void
     {
-        $departments = [
+                $headOfficeDepts = [
             'Administration',
             'Finance',
             'Human Resources',
@@ -18,10 +18,22 @@ class DepartmentSeeder extends Seeder
             'Operations',
         ];
 
-        foreach ($departments as $name) {
-            Department::firstOrCreate(
+        $schoolDepts = [
+            'Teaching',
+            'Non-teaching',
+        ];
+
+        foreach ($headOfficeDepts as $name) {
+            Department::updateOrCreate(
                 ['name' => $name],
-                ['is_active' => true]
+                ['is_active' => true, 'branch_type' => 'head_office']
+            );
+        }
+
+        foreach ($schoolDepts as $name) {
+            Department::updateOrCreate(
+                ['name' => $name],
+                ['is_active' => true, 'branch_type' => 'school']
             );
         }
     }

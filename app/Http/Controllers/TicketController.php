@@ -96,6 +96,18 @@ class TicketController extends Controller
                 'Please enter a valid Zindagi Trust email address ending in @zindagitrust.org.',
         ]);
 
+        if (!empty($validated['department_id'])) {
+            $dept = \App\Models\Department::find($validated['department_id']);
+            $branch = \App\Models\Branch::find($validated['branch_id']);
+
+            if ($dept && $branch && $dept->branch_type !== $branch->type) {
+                return back()
+                    ->withErrors(['department_id' =>
+                        'The selected department is not valid for the chosen branch.'])
+                    ->withInput();
+            }
+        }
+
         unset($validated['attachments']);
         $sla = SlaSetting::where('priority', $validated['priority'])->first();
 
