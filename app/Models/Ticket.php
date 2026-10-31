@@ -47,4 +47,26 @@ class Ticket extends Model
     {
         return $this->hasMany(TicketAttachment::class);
     }
+    public function technicians()
+{
+    return $this->belongsToMany(
+        User::class,
+        'ticket_user'
+    )->withTimestamps();
+}
+public function mergedInto()
+{
+    return $this->belongsTo(
+        Ticket::class,
+        'merged_into_ticket_id'
+    );
+}
+
+public function mergedTickets()
+{
+    return $this->hasMany(
+        Ticket::class,
+        'merged_into_ticket_id'
+    );
+}
 }

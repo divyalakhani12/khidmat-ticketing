@@ -7,11 +7,12 @@ use Illuminate\Database\Eloquent\Model;
 class TicketComment extends Model
 {
     protected $fillable = [
-        'ticket_id',
-        'user_id',
-        'body',
-        'is_public',
-    ];
+    'ticket_id',
+    'user_id',
+    'sender_type',
+    'body',
+    'is_public',
+];
 
     protected function casts(): array
     {

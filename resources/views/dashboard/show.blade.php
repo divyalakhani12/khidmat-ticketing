@@ -59,6 +59,12 @@
         </div>
     @endif
 
+    @if (session('error'))
+        <div style="color: red; margin-bottom: 15px;">
+            {{ session('error') }}
+        </div>
+    @endif
+
     <div class="row">
         <span class="label">Requester:</span>
         {{ $ticket->requester_name }}
@@ -95,14 +101,26 @@
     </div>
 
     <div class="row">
-        <span class="label">Assigned To:</span>
+    <span class="label">Assigned Technicians:</span>
 
-        @if ($ticket->assigned_to)
-            {{ \App\Models\User::find($ticket->assigned_to)?->name ?? 'Unknown user' }}
-        @else
-            Not assigned
-        @endif
-    </div>
+    @if ($ticket->technicians->isNotEmpty())
+
+        @foreach ($ticket->technicians as $technician)
+            <span style="
+                display: inline-block;
+                background: #eef2f7;
+                padding: 6px 10px;
+                margin: 4px 4px 4px 0;
+                border-radius: 6px;
+            ">
+                {{ $technician->name }}
+            </span>
+        @endforeach
+
+    @else
+        Not assigned
+    @endif
+</div>
 
     <div class="row">
         <span class="label">Submitted:</span>
@@ -113,35 +131,61 @@
 
         <hr>
 
-        <h3>Assign Ticket</h3>
+        <h3>Assign Technicians</h3>
 
-        <form method="POST"
-              action="{{ route('dashboard.tickets.assign', $ticket) }}">
+<form method="POST"
+      action="{{ route('dashboard.tickets.assign', $ticket) }}">
 
-            @csrf
+    @csrf
 
-            <select name="assigned_to" required>
+    <label>
+        Select one or more IT Support Officers:
+    </label>
 
-                <option value="">
-                    Select IT Support Officer
-                </option>
+    <br>
 
-                @foreach ($officers as $officer)
-                    <option
-                        value="{{ $officer->id }}"
-                        @selected($ticket->assigned_to == $officer->id)
-                    >
-                        {{ $officer->name }}
-                    </option>
-                @endforeach
+    <select
+        name="technicians[]"
+        multiple
+        size="6"
+        required
+        style="
+            min-width: 320px;
+            margin-top: 10px;
+        "
+    >
 
-            </select>
+        @foreach ($officers as $officer)
 
-            <button type="submit">
-                Assign Ticket
-            </button>
+            <option
+                value="{{ $officer->id }}"
+                @selected(
+                    in_array(
+                        $officer->id,
+                        $assignedTechnicianIds
+                    )
+                )
+            >
+                {{ $officer->name }}
+            </option>
 
-        </form>
+        @endforeach
+
+    </select>
+
+    <br><br>
+
+    <small>
+        Hold Ctrl while clicking to select multiple technicians.
+    </small>
+
+    <br><br>
+
+    <button type="submit">
+        Update Technicians
+    </button>
+
+</form>
 
         <hr>
 
@@ -209,6 +253,70 @@
             </button>
 
         </form>
+
+        <hr>
+
+        @if (!in_array($ticket->status, ['Closed', 'Cancelled', 'Merged']))
+
+            <h3>Merge with Previous Ticket</h3>
+
+            <p>
+                If this issue has occurred before, select the previously
+                resolved or closed ticket. The previous ticket will be reopened
+                and this new ticket will be merged into it.
+            </p>
+
+            <form method="POST"
+                  action="{{ route('dashboard.tickets.merge', $ticket) }}"
+                  onsubmit="return confirm('Merge this ticket into the selected main ticket? This action cannot be undone easily.');">
+
+                @csrf
+
+                <label>
+                    Select the main ticket:
+                </label>
+
+                <br><br>
+
+                <select name="main_ticket_id" required style="min-width: 420px;">
+                    <option value="">-- Select Main Ticket --</option>
+
+                    @foreach (
+                        \App\Models\Ticket::where('id', '!=', $ticket->id)
+                        ->where('requester_email', $ticket->requester_email)
+                        ->whereIn('status', ['Resolved', 'Closed'])
+                        ->when(
+                            auth()->user()->role === 'branch_admin',
+                            fn ($query) => $query->where(
+                                'branch_id',
+                                auth()->user()->branch_id
+                            )
+                        )
+                        ->latest()
+                        ->get()
+                        as $mainTicket
+                    )
+
+                        <option value="{{ $mainTicket->id }}">
+                            {{ $mainTicket->ticket_number }}
+                            -
+                            {{ $mainTicket->subject }}
+                            ({{ $mainTicket->status }})
+                        </option>
+
+                    @endforeach
+
+                </select>
+
+                <br><br>
+
+                <button type="submit">
+                    Merge Into Selected Ticket
+                </button>
+
+            </form>
+
+        @endif
 
     @endif
 
@@ -316,7 +424,9 @@
 
     <hr>
 
-    <h3>Comments</h3>
+<h3>Chat with Requester</h3>
+
+@if (!in_array($ticket->status, ['Closed', 'Cancelled']))
 
     <form method="POST"
           action="{{ route('dashboard.tickets.comments', $ticket) }}">
@@ -328,7 +438,100 @@
             rows="3"
             style="width: 100%;"
             required
-        >{{ old('body') }}</textarea>
+            placeholder="Type a message to the requester..."
+        ></textarea>
+
+        <input
+            type="hidden"
+            name="is_public"
+            value="1"
+        >
+
+        <br><br>
+
+        <button type="submit">
+            Send Message
+        </button>
+
+    </form>
+
+@else
+
+    <p>
+        <em>
+            Chat is disabled because this ticket is {{ strtolower($ticket->status) }}.
+        </em>
+    </p>
+
+@endif
+
+
+<br>
+
+<h4>Conversation</h4>
+<div id="requester-chat-messages">
+
+@forelse (
+    $comments
+        ->where('is_public', true)
+        ->sortBy('created_at')
+    as $comment
+)
+
+    <div style="
+        padding: 12px;
+        margin-bottom: 10px;
+        background: #eef4ff;
+        border-radius: 8px;
+    ">
+
+        <strong>
+            @if ($comment->sender_type === 'requester')
+                Requester
+            @else
+                {{ $comment->user?->name ?? 'IT Support' }}
+            @endif
+        </strong>
+
+        <br>
+
+        {{ $comment->body }}
+
+        <br>
+
+        <small>
+            {{ $comment->created_at->format('d M Y, h:i A') }}
+        </small>
+
+    </div>
+
+@empty
+
+    <p>No chat messages yet.</p>
+
+@endforelse
+</div>
+
+<hr>
+
+<h3>Internal Comments / Notes</h3>
+
+@if (!in_array($ticket->status, ['Closed', 'Cancelled']))
+
+    <form method="POST"
+          action="{{ route('dashboard.tickets.comments', $ticket) }}">
+
+        @csrf
+
+        <textarea
+            name="body"
+            rows="3"
+            style="width: 100%;"
+            required
+            placeholder="Add an internal note for IT staff..."
+        ></textarea>
+
+        <br>
 
         <label>
             <input
@@ -339,45 +542,67 @@
             Show to requester
         </label>
 
+        <br><br>
+
         <button type="submit">
             Add Comment
         </button>
 
     </form>
 
-    @forelse ($comments as $comment)
+@else
 
-        <div class="row">
+    <p>
+        <em>
+            Comments are disabled because this ticket is {{ strtolower($ticket->status) }}.
+        </em>
+    </p>
 
-            <strong>
-                {{ $comment->user->name }}
-            </strong>
+@endif
 
-            @if ($comment->is_public)
-                (visible to requester)
-            @else
-                (internal)
-            @endif
 
-            <br>
+<br>
 
-            {{ $comment->body }}
+<h4>Internal Notes</h4>
 
-            <br>
+@forelse (
+    $comments
+        ->where('is_public', false)
+        ->sortBy('created_at')
+    as $comment
+)
 
-            <small>
-                {{ $comment->created_at }}
-            </small>
+    <div style="
+        padding: 12px;
+        margin-bottom: 10px;
+        background: #fff8e1;
+        border-radius: 8px;
+    ">
 
-        </div>
+        <strong>
+            {{ $comment->user?->name ?? 'IT Support' }}
+        </strong>
 
-    @empty
+        <br>
 
-        <p>No comments yet.</p>
+        {{ $comment->body }}
 
-    @endforelse
+        <br>
 
-    <hr>
+        <small>
+            {{ $comment->created_at->format('d M Y, h:i A') }}
+        </small>
+
+    </div>
+
+@empty
+
+    <p>No internal comments yet.</p>
+
+@endforelse
+
+<hr>
+
 
     <h3>Activity History</h3>
 
@@ -426,6 +651,69 @@
     @endif
 
 </div>
+
+<script>
+    async function refreshRequesterChat() {
+        try {
+            const response = await fetch(
+                "{{ route('tickets.track.messages.get', $ticket) }}"
+            );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const messages = await response.json();
+
+            const container =
+                document.getElementById('requester-chat-messages');
+
+            if (!container) {
+                return;
+            }
+
+            if (messages.length === 0) {
+                container.innerHTML =
+                    '<p>No chat messages yet.</p>';
+                return;
+            }
+
+            container.innerHTML = messages.map(message => {
+
+                const sender = escapeHtml(message.sender_name);
+                const body = escapeHtml(message.body);
+                const time = escapeHtml(message.created_at);
+
+                return `
+                    <div style="
+                        padding: 12px;
+                        margin-bottom: 10px;
+                        background: #eef4ff;
+                        border-radius: 8px;
+                    ">
+                        <strong>${sender}</strong>
+                        <br>
+                        ${body}
+                        <br>
+                        <small>${time}</small>
+                    </div>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('Chat refresh failed:', error);
+        }
+    }
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value ?? '';
+        return div.innerHTML;
+    }
+
+    setInterval(refreshRequesterChat, 3000);
+</script>
+
 
 </body>
 </html>

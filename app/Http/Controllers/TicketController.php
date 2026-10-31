@@ -2,40 +2,64 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SlaSetting;
+use App\Mail\TicketMessageMail;
 use App\Mail\NewTicketMail;
+use App\Mail\TicketClosedMail;
+use App\Mail\TicketReopenedMail;
 use App\Mail\TicketSubmittedMail;
 use App\Models\Branch;
 use App\Models\Category;
 use App\Models\Department;
+use App\Models\SlaSetting;
 use App\Models\Ticket;
+use App\Models\TicketActivity;
 use App\Models\TicketAttachment;
+use App\Models\TicketComment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Models\TicketActivity;
-use App\Mail\TicketReopenedMail;
 
 class TicketController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | Ticket Submission Form
+    |--------------------------------------------------------------------------
+    */
+
     public function create()
     {
         if (session('ticket_submitted')) {
-            return redirect()->route('tickets.submitted');
+            return redirect()
+                ->route('tickets.submitted');
         }
 
-        $branches = Branch::where('is_active', true)->get();
-        $categories = Category::where('is_active', true)->get();
-        $departments = Department::where('is_active', true)->get();
+        $branches = Branch::where('is_active', true)
+            ->get();
 
-        return view('tickets.create', compact(
-            'branches',
-            'categories',
-            'departments'
-        ));
+        $categories = Category::where('is_active', true)
+            ->get();
+
+        $departments = Department::where('is_active', true)
+            ->get();
+
+        return view(
+            'tickets.create',
+            compact(
+                'branches',
+                'categories',
+                'departments'
+            )
+        );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Submit Ticket
+    |--------------------------------------------------------------------------
+    */
 
     public function store(Request $request)
     {
@@ -46,48 +70,58 @@ class TicketController extends Controller
                 'max:255',
                 "regex:/^[A-Za-z\s'-]+$/",
             ],
+
             'requester_email' => [
                 'required',
                 'email',
                 'max:255',
                 'regex:/^[A-Za-z0-9._%+-]+@zindagitrust\.org$/i',
             ],
+
             'contact_number' => [
                 'nullable',
                 'regex:/^[0-9+\-\s()]{7,20}$/',
             ],
+
             'department_id' => [
                 'nullable',
                 'exists:departments,id',
             ],
+
             'branch_id' => [
                 'required',
                 'exists:branches,id',
             ],
+
             'category_id' => [
                 'required',
                 'exists:categories,id',
             ],
+
             'priority' => [
                 'required',
                 'in:Low,Medium,High,Critical',
             ],
+
             'subject' => [
                 'required',
                 'string',
                 'max:255',
             ],
+
             'description' => [
                 'required',
                 'string',
                 'min:10',
                 'max:5000',
             ],
+
             'attachments' => [
                 'nullable',
                 'array',
                 'max:5',
             ],
+
             'attachments.*' => [
                 'file',
                 'mimes:jpg,jpeg,png,pdf,docx,xlsx,txt',
@@ -98,41 +132,87 @@ class TicketController extends Controller
                 'Please enter a valid Zindagi Trust email address ending in @zindagitrust.org.',
         ]);
 
-        if (!empty($validated['department_id'])) {
-            $dept = \App\Models\Department::find($validated['department_id']);
-            $branch = \App\Models\Branch::find($validated['branch_id']);
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Branch-specific Department
+        |--------------------------------------------------------------------------
+        */
 
-            if ($dept && $branch && $dept->branch_type !== $branch->type) {
+        if (!empty($validated['department_id'])) {
+
+            $department = Department::find(
+                $validated['department_id']
+            );
+
+            $branch = Branch::find(
+                $validated['branch_id']
+            );
+
+            if (
+                $department
+                &&
+                $branch
+                &&
+                $department->branch_type !== $branch->type
+            ) {
                 return back()
-                    ->withErrors(['department_id' =>
-                        'The selected department is not valid for the chosen branch.'])
+                    ->withErrors([
+                        'department_id' =>
+                            'The selected department is not valid for the chosen branch.'
+                    ])
                     ->withInput();
             }
         }
 
         unset($validated['attachments']);
-        $sla = SlaSetting::where('priority', $validated['priority'])->first();
 
-$dueAt = null;
+        /*
+        |--------------------------------------------------------------------------
+        | SLA Due Date
+        |--------------------------------------------------------------------------
+        */
 
-if ($sla && $sla->resolution_hours) {
-    $dueAt = now()->addHours($sla->resolution_hours);
-}
+        $sla = SlaSetting::where(
+                'priority',
+                $validated['priority']
+            )
+            ->first();
+
+        $dueAt = null;
+
+        if (
+            $sla
+            &&
+            $sla->resolution_hours
+        ) {
+            $dueAt = now()
+                ->addHours(
+                    $sla->resolution_hours
+                );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Create Ticket
+        |--------------------------------------------------------------------------
+        */
+
         $ticket = Ticket::create([
-    ...$validated,
+            ...$validated,
 
-    'ticket_number' =>
-        'ZT-' .
-        now()->format('Ymd') .
-        '-' .
-        strtoupper(Str::random(5)),
+            'ticket_number' =>
+                'ZT-'
+                . now()->format('Ymd')
+                . '-'
+                . strtoupper(Str::random(5)),
 
-    'tracking_token' => Str::random(64),
+            'tracking_token' =>
+                Str::random(64),
 
-    'status' => 'New',
+            'status' => 'New',
 
-    'due_at' => $dueAt,
-]);
+            'due_at' => $dueAt,
+        ]);
 
         /*
         |--------------------------------------------------------------------------
@@ -140,21 +220,29 @@ if ($sla && $sla->resolution_hours) {
         |--------------------------------------------------------------------------
         */
 
-        foreach ($request->file('attachments', []) as $file) {
+        foreach (
+            $request->file('attachments', [])
+            as $file
+        ) {
             $size = $file->getSize();
 
             $path = $file->store(
                 'attachments/' . $ticket->id
             );
 
-            $ticket->attachments()->create([
-                'path' => $path,
-                'original_name' =>
-                    $file->getClientOriginalName(),
-                'mime_type' =>
-                    $file->getClientMimeType(),
-                'size' => $size,
-            ]);
+            $ticket
+                ->attachments()
+                ->create([
+                    'path' => $path,
+
+                    'original_name' =>
+                        $file->getClientOriginalName(),
+
+                    'mime_type' =>
+                        $file->getClientMimeType(),
+
+                    'size' => $size,
+                ]);
         }
 
         /*
@@ -163,10 +251,13 @@ if ($sla && $sla->resolution_hours) {
         |--------------------------------------------------------------------------
         */
 
-        Mail::to($ticket->requester_email)
-            ->send(
-                new TicketSubmittedMail($ticket)
-            );
+        Mail::to(
+            $ticket->requester_email
+        )->send(
+            new TicketSubmittedMail(
+                $ticket
+            )
+        );
 
         /*
         |--------------------------------------------------------------------------
@@ -184,11 +275,16 @@ if ($sla && $sla->resolution_hours) {
             )
             ->get();
 
-        foreach ($branchAdmins as $admin) {
-            Mail::to($admin->email)
-                ->send(
-                    new NewTicketMail($ticket)
-                );
+        foreach (
+            $branchAdmins as $admin
+        ) {
+            Mail::to(
+                $admin->email
+            )->send(
+                new NewTicketMail(
+                    $ticket
+                )
+            );
         }
 
         /*
@@ -201,12 +297,6 @@ if ($sla && $sla->resolution_hours) {
             'ticket_submitted' => true
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Redirect to Success Page
-        |--------------------------------------------------------------------------
-        */
-
         return redirect()
             ->route(
                 'tickets.success',
@@ -214,12 +304,24 @@ if ($sla && $sla->resolution_hours) {
             );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Submitted Page
+    |--------------------------------------------------------------------------
+    */
+
     public function submitted()
     {
         return view(
             'tickets.submitted'
         );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reset Public Form
+    |--------------------------------------------------------------------------
+    */
 
     public function resetForm()
     {
@@ -233,42 +335,85 @@ if ($sla && $sla->resolution_hours) {
             );
     }
 
-    public function success(Ticket $ticket)
-    {
+    /*
+    |--------------------------------------------------------------------------
+    | Success Page
+    |--------------------------------------------------------------------------
+    */
+
+    public function success(
+        Ticket $ticket
+    ) {
         return view(
             'tickets.success',
             compact('ticket')
         );
     }
 
-        public function track(Ticket $ticket)
-    {
+    /*
+    |--------------------------------------------------------------------------
+    | Public Tracking Page
+    |--------------------------------------------------------------------------
+    */
+
+    public function track(
+        Ticket $ticket
+    ) {
+        /*
+         * Public status history only.
+         */
         $updates = $ticket
             ->activities()
-            ->where('action', 'Status Changed')
+            ->where(
+                'action',
+                'Status Changed'
+            )
             ->latest()
             ->get();
 
+        /*
+         * IMPORTANT:
+         * Requester can only see public messages.
+         * Internal IT messages remain hidden.
+         */
         $comments = $ticket
             ->comments()
-            ->where('is_public', true)
+            ->where(
+                'is_public',
+                true
+            )
             ->latest()
             ->get();
 
-        // The most recent "closed" event, if any, for the "who closed it" line.
+        /*
+         * Find latest close event so tracking
+         * page can show who closed the ticket.
+         */
         $closure = $ticket
             ->activities()
-            ->where('new_value', 'Closed')
+            ->where(
+                'new_value',
+                'Closed'
+            )
             ->latest()
             ->first();
 
-        return view('tickets.track', compact(
-            'ticket',
-            'updates',
-            'comments',
-            'closure'
-        ));
+        return view(
+            'tickets.track',
+            compact(
+                'ticket',
+                'updates',
+                'comments',
+                'closure'
+            )
+        );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Public Attachment Download
+    |--------------------------------------------------------------------------
+    */
 
     public function downloadAttachment(
         Ticket $ticket,
@@ -293,98 +438,349 @@ if ($sla && $sla->resolution_hours) {
         );
     }
 
-        public function cancel(Ticket $ticket)
-    {
-        // Can't cancel something already finished.
-        if (in_array($ticket->status, ['Closed', 'Cancelled'])) {
-            return redirect()->route('tickets.track', $ticket);
+    /*
+    |--------------------------------------------------------------------------
+    | Requester Cancels Ticket
+    |--------------------------------------------------------------------------
+    */
+
+    public function cancel(
+        Ticket $ticket
+    ) {
+        if (
+            in_array(
+                $ticket->status,
+                ['Closed', 'Cancelled']
+            )
+        ) {
+            return redirect()
+                ->route(
+                    'tickets.track',
+                    $ticket
+                );
         }
 
-        $oldStatus = $ticket->status;
+        $oldStatus =
+            $ticket->status;
 
-        $ticket->status = 'Cancelled';
+        $ticket->status =
+            'Cancelled';
+
         $ticket->save();
 
         TicketActivity::create([
-            'ticket_id'   => $ticket->id,
-            'user_id'     => null,
-            'actor_label' => 'Requester',
-            'action'      => 'Status Changed',
-            'old_value'   => $oldStatus,
-            'new_value'   => 'Cancelled',
+            'ticket_id' =>
+                $ticket->id,
+
+            'user_id' =>
+                null,
+
+            'actor_label' =>
+                'Requester',
+
+            'action' =>
+                'Status Changed',
+
+            'old_value' =>
+                $oldStatus,
+
+            'new_value' =>
+                'Cancelled',
         ]);
 
-        return redirect()->route('tickets.track', $ticket);
+        return redirect()
+            ->route(
+                'tickets.track',
+                $ticket
+            )
+            ->with(
+                'success',
+                'Ticket cancelled.'
+            );
     }
 
-        public function approveResolution(Ticket $ticket)
-    {
-        // Only a resolved ticket can be approved.
-        if ($ticket->status !== 'Resolved') {
-            return redirect()->route('tickets.track', $ticket);
+    /*
+    |--------------------------------------------------------------------------
+    | Requester Approves Resolution
+    |--------------------------------------------------------------------------
+    */
+
+    public function approveResolution(
+        Ticket $ticket
+    ) {
+        /*
+         * Only resolved tickets can be
+         * approved and closed.
+         */
+        if (
+            $ticket->status !== 'Resolved'
+        ) {
+            return redirect()
+                ->route(
+                    'tickets.track',
+                    $ticket
+                );
         }
 
-        $oldStatus = $ticket->status;
+        $oldStatus =
+            $ticket->status;
 
-        $ticket->status = 'Closed';
-        $ticket->closed_at = now();
+        $ticket->status =
+            'Closed';
+
+        $ticket->closed_at =
+            now();
+
         $ticket->save();
 
         TicketActivity::create([
-            'ticket_id'   => $ticket->id,
-            'user_id'     => null,
-            'actor_label' => 'Requester',
-            'action'      => 'Status Changed',
-            'old_value'   => $oldStatus,
-            'new_value'   => 'Closed',
+            'ticket_id' =>
+                $ticket->id,
+
+            'user_id' =>
+                null,
+
+            'actor_label' =>
+                'Requester',
+
+            'action' =>
+                'Status Changed',
+
+            'old_value' =>
+                $oldStatus,
+
+            'new_value' =>
+                'Closed',
         ]);
 
-        return redirect()->route('tickets.track', $ticket);
+        /*
+        |--------------------------------------------------------------------------
+        | Closed Email
+        |--------------------------------------------------------------------------
+        */
+
+        Mail::to(
+            $ticket->requester_email
+        )->send(
+            new TicketClosedMail(
+                $ticket
+            )
+        );
+
+        return redirect()
+            ->route(
+                'tickets.track',
+                $ticket
+            )
+            ->with(
+                'success',
+                'Ticket closed successfully.'
+            );
     }
 
-    public function rejectResolution(Ticket $ticket)
-    {
-        if ($ticket->status !== 'Resolved') {
-            return redirect()->route('tickets.track', $ticket);
+    /*
+    |--------------------------------------------------------------------------
+    | Requester Rejects Resolution
+    |--------------------------------------------------------------------------
+    */
+
+    public function rejectResolution(
+        Ticket $ticket
+    ) {
+        if (
+            $ticket->status !== 'Resolved'
+        ) {
+            return redirect()
+                ->route(
+                    'tickets.track',
+                    $ticket
+                );
         }
 
-        $oldStatus = $ticket->status;
+        $oldStatus =
+            $ticket->status;
 
-        $ticket->status = 'Reopened';
-        $ticket->resolved_at = null;   // no longer resolved
-        $ticket->escalated_at = null;  // can escalate again if it goes overdue
+        $ticket->status =
+            'Reopened';
+
+        /*
+         * Ticket is no longer considered resolved.
+         */
+        $ticket->resolved_at =
+            null;
+
+        /*
+         * Allow it to escalate again later
+         * if it becomes overdue.
+         */
+        $ticket->escalated_at =
+            null;
+
         $ticket->save();
 
         TicketActivity::create([
-            'ticket_id'   => $ticket->id,
-            'user_id'     => null,
-            'actor_label' => 'Requester',
-            'action'      => 'Status Changed',
-            'old_value'   => $oldStatus,
-            'new_value'   => 'Reopened',
+            'ticket_id' =>
+                $ticket->id,
+
+            'user_id' =>
+                null,
+
+            'actor_label' =>
+                'Requester',
+
+            'action' =>
+                'Status Changed',
+
+            'old_value' =>
+                $oldStatus,
+
+            'new_value' =>
+                'Reopened',
         ]);
 
-        // Notify the assigned officer and the branch's admins.
+        /*
+        |--------------------------------------------------------------------------
+        | Notify ALL Assigned Technicians
+        |--------------------------------------------------------------------------
+        */
+
         $recipients = [];
 
-        if ($ticket->assigned_to) {
-            $officer = User::find($ticket->assigned_to);
-            if ($officer) {
-                $recipients[] = $officer->email;
-            }
-        }
+        $technicianEmails = $ticket
+            ->technicians()
+            ->pluck(
+                'users.email'
+            )
+            ->all();
 
-        $branchAdmins = User::where('role', 'branch_admin')
-            ->where('branch_id', $ticket->branch_id)
+        $recipients = array_merge(
+            $recipients,
+            $technicianEmails
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Notify Relevant Branch Admins
+        |--------------------------------------------------------------------------
+        */
+
+        $branchAdminEmails =
+            User::where(
+                'role',
+                'branch_admin'
+            )
+            ->where(
+                'branch_id',
+                $ticket->branch_id
+            )
             ->pluck('email')
             ->all();
 
-        $recipients = array_merge($recipients, $branchAdmins);
+        $recipients = array_merge(
+            $recipients,
+            $branchAdminEmails
+        );
 
-        foreach (array_unique($recipients) as $email) {
-            Mail::to($email)->send(new TicketReopenedMail($ticket));
+        foreach (
+            array_unique($recipients)
+            as $email
+        ) {
+            Mail::to(
+                $email
+            )->send(
+                new TicketReopenedMail(
+                    $ticket
+                )
+            );
         }
 
-        return redirect()->route('tickets.track', $ticket);
+        return redirect()
+            ->route(
+                'tickets.track',
+                $ticket
+            )
+            ->with(
+                'success',
+                'Ticket reopened. IT Support has been notified.'
+            );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Requester Sends Chat Message
+    |--------------------------------------------------------------------------
+    */
+
+    public function sendMessage(Request $request, Ticket $ticket)
+{
+    if (in_array($ticket->status, ['Closed', 'Cancelled'])) {
+        return redirect()
+            ->route('tickets.track', $ticket)
+            ->with(
+                'error',
+                'Messaging is disabled for closed or cancelled tickets.'
+            );
+    }
+
+    $validated = $request->validate([
+        'body' => 'required|string|max:2000',
+    ]);
+
+    TicketComment::create([
+        'ticket_id' => $ticket->id,
+        'user_id' => null,
+        'sender_type' => 'requester',
+        'body' => $validated['body'],
+        'is_public' => true,
+    ]);
+
+    /*
+     * Email all technicians currently assigned
+     * to this ticket.
+     */
+    $technicianEmails = $ticket->technicians()
+        ->whereNotNull('email')
+        ->pluck('email')
+        ->unique()
+        ->values();
+
+    foreach ($technicianEmails as $email) {
+        Mail::to($email)
+            ->send(
+                new TicketMessageMail(
+                    $ticket,
+                    $validated['body'],
+                    $ticket->requester_name,
+                    'staff'
+                )
+            );
+    }
+
+    return redirect()
+        ->route('tickets.track', $ticket)
+        ->with('success', 'Message sent to IT Support.');
+}
+    public function getMessages(Ticket $ticket)
+{
+    $comments = $ticket->comments()
+        ->where('is_public', true)
+        ->with('user')
+        ->orderBy('created_at')
+        ->get();
+
+    return response()->json(
+        $comments->map(function ($comment) {
+            return [
+                'id' => $comment->id,
+                'sender_type' => $comment->sender_type,
+                'sender_name' => $comment->sender_type === 'requester'
+                    ? 'Requester'
+                    : ($comment->user?->name ?? 'IT Support'),
+                'body' => $comment->body,
+                'created_at' => $comment->created_at
+                    ->format('d M Y, h:i A'),
+            ];
+        })
+    );
+}
 }

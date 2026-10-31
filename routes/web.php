@@ -30,11 +30,26 @@ Route::get('/new-ticket', [TicketController::class, 'resetForm'])
 Route::get('/login', [AuthController::class, 'showLogin'])
     ->name('login');
 
+Route::get(
+    '/track/{ticket:tracking_token}/messages',
+    [TicketController::class, 'getMessages']
+)->name('tickets.track.messages.get');
+
 Route::post('/login', [AuthController::class, 'login'])
     ->name('login.submit');
 
 Route::post('/logout', [AuthController::class, 'logout'])
     ->name('logout');
+
+Route::post(
+    '/dashboard/tickets/{ticket}/merge',
+    [DashboardController::class, 'merge']
+)->name('dashboard.tickets.merge');
+
+Route::post(
+    '/dashboard/tickets/{ticket}/merge',
+    [DashboardController::class, 'merge']
+)->name('dashboard.tickets.merge');
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware('auth')
@@ -91,3 +106,8 @@ Route::post('/track/{ticket:tracking_token}/reject', [TicketController::class, '
 Route::post('/dashboard/tickets/{ticket}/cancel', [DashboardController::class, 'cancel'])
     ->middleware('auth')
     ->name('dashboard.tickets.cancel');
+
+Route::post(
+    '/track/{ticket:tracking_token}/messages',
+    [TicketController::class, 'sendMessage']
+)->name('tickets.track.messages');
