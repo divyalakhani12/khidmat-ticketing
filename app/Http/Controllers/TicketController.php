@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Models\TicketActivity;
+use App\Mail\TicketReopenedMail;
 
 class TicketController extends Controller
 {
@@ -240,34 +241,33 @@ if ($sla && $sla->resolution_hours) {
         );
     }
 
-    public function track(Ticket $ticket)
+        public function track(Ticket $ticket)
     {
         $updates = $ticket
             ->activities()
-            ->where(
-                'action',
-                'Status Changed'
-            )
+            ->where('action', 'Status Changed')
             ->latest()
             ->get();
 
         $comments = $ticket
             ->comments()
-            ->where(
-                'is_public',
-                true
-            )
+            ->where('is_public', true)
             ->latest()
             ->get();
 
-        return view(
-            'tickets.track',
-            compact(
-                'ticket',
-                'updates',
-                'comments'
-            )
-        );
+        // The most recent "closed" event, if any, for the "who closed it" line.
+        $closure = $ticket
+            ->activities()
+            ->where('new_value', 'Closed')
+            ->latest()
+            ->first();
+
+        return view('tickets.track', compact(
+            'ticket',
+            'updates',
+            'comments',
+            'closure'
+        ));
     }
 
     public function downloadAttachment(
@@ -313,6 +313,77 @@ if ($sla && $sla->resolution_hours) {
             'old_value'   => $oldStatus,
             'new_value'   => 'Cancelled',
         ]);
+
+        return redirect()->route('tickets.track', $ticket);
+    }
+
+        public function approveResolution(Ticket $ticket)
+    {
+        // Only a resolved ticket can be approved.
+        if ($ticket->status !== 'Resolved') {
+            return redirect()->route('tickets.track', $ticket);
+        }
+
+        $oldStatus = $ticket->status;
+
+        $ticket->status = 'Closed';
+        $ticket->closed_at = now();
+        $ticket->save();
+
+        TicketActivity::create([
+            'ticket_id'   => $ticket->id,
+            'user_id'     => null,
+            'actor_label' => 'Requester',
+            'action'      => 'Status Changed',
+            'old_value'   => $oldStatus,
+            'new_value'   => 'Closed',
+        ]);
+
+        return redirect()->route('tickets.track', $ticket);
+    }
+
+    public function rejectResolution(Ticket $ticket)
+    {
+        if ($ticket->status !== 'Resolved') {
+            return redirect()->route('tickets.track', $ticket);
+        }
+
+        $oldStatus = $ticket->status;
+
+        $ticket->status = 'Reopened';
+        $ticket->resolved_at = null;   // no longer resolved
+        $ticket->escalated_at = null;  // can escalate again if it goes overdue
+        $ticket->save();
+
+        TicketActivity::create([
+            'ticket_id'   => $ticket->id,
+            'user_id'     => null,
+            'actor_label' => 'Requester',
+            'action'      => 'Status Changed',
+            'old_value'   => $oldStatus,
+            'new_value'   => 'Reopened',
+        ]);
+
+        // Notify the assigned officer and the branch's admins.
+        $recipients = [];
+
+        if ($ticket->assigned_to) {
+            $officer = User::find($ticket->assigned_to);
+            if ($officer) {
+                $recipients[] = $officer->email;
+            }
+        }
+
+        $branchAdmins = User::where('role', 'branch_admin')
+            ->where('branch_id', $ticket->branch_id)
+            ->pluck('email')
+            ->all();
+
+        $recipients = array_merge($recipients, $branchAdmins);
+
+        foreach (array_unique($recipients) as $email) {
+            Mail::to($email)->send(new TicketReopenedMail($ticket));
+        }
 
         return redirect()->route('tickets.track', $ticket);
     }

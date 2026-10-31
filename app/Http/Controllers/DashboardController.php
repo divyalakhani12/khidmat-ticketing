@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use App\Mail\TicketClosedMail;
 
 class DashboardController extends Controller
 {
@@ -313,9 +314,12 @@ class DashboardController extends Controller
 
             if ($newStatus === 'Resolved') {
                 Mail::to($ticket->requester_email)
-                    ->send(
-                        new TicketResolvedMail($ticket)
-                    );
+                    ->send(new TicketResolvedMail($ticket));
+            }
+
+            if ($newStatus === 'Closed') {
+                Mail::to($ticket->requester_email)
+                    ->send(new TicketClosedMail($ticket));
             }
         }
 

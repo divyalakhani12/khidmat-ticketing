@@ -51,15 +51,19 @@ Route::post('/dashboard/tickets/{ticket}/transfer', [DashboardController::class,
 Route::post('/dashboard/tickets/{ticket}/status', [DashboardController::class, 'updateStatus'])
     ->middleware('auth')
     ->name('dashboard.tickets.status');
+
 Route::get('/dashboard/tickets/{ticket}', [DashboardController::class, 'show'])
     ->middleware('auth')
     ->name('dashboard.tickets.show');
+
 Route::post('/dashboard/tickets/{ticket}/assign', [DashboardController::class, 'assign'])
     ->middleware('auth')
     ->name('dashboard.tickets.assign');
+
 Route::post('/dashboard/tickets/{ticket}/comments', [DashboardController::class, 'addComment'])
     ->middleware('auth')
     ->name('dashboard.tickets.comments');
+
 Route::get('/dashboard/tickets/{ticket}/attachments/{attachment}', [DashboardController::class, 'downloadAttachment'])
     ->middleware('auth')
     ->name('dashboard.tickets.attachments.download');
@@ -74,8 +78,16 @@ Route::get('/dashboard/settings/sla', [SlaSettingController::class, 'index'])
 Route::post('/dashboard/settings/sla', [SlaSettingController::class, 'update'])
     ->middleware('auth')
     ->name('dashboard.sla.update');
+
 Route::post('/track/{ticket:tracking_token}/cancel', [TicketController::class, 'cancel'])
     ->name('tickets.track.cancel');
+
+Route::post('/track/{ticket:tracking_token}/approve', [TicketController::class, 'approveResolution'])
+    ->name('tickets.track.approve');
+
+Route::post('/track/{ticket:tracking_token}/reject', [TicketController::class, 'rejectResolution'])
+    ->name('tickets.track.reject');
+
 Route::post('/dashboard/tickets/{ticket}/cancel', [DashboardController::class, 'cancel'])
     ->middleware('auth')
     ->name('dashboard.tickets.cancel');

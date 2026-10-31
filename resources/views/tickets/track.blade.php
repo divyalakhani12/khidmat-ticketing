@@ -45,13 +45,19 @@
         {{ $ticket->status }}
     </div>
 
-    @if (!in_array($ticket->status, ['Closed', 'Cancelled']))
-    <form method="POST" action="{{ route('tickets.track.cancel', $ticket) }}"
-          onsubmit="return confirm('Cancel this ticket? This cannot be undone.');">
-        @csrf
-        <button type="submit">Cancel This Ticket</button>
-    </form>
-    @endif
+    @if ($ticket->status === 'Closed' && $closure)
+    <div class="row">
+        <span class="label">Closed:</span>
+        @if ($closure->actor_label === 'Requester')
+            by you (approved)
+        @elseif ($closure->actor_label === 'System')
+            automatically (no response within 1 month)
+        @else
+            by IT Support
+        @endif
+        on {{ $closure->created_at }}
+    </div>
+@endif
 
     <div class="row">
         <span class="label">Priority:</span>
@@ -62,6 +68,34 @@
         <span class="label">Submitted:</span>
         {{ $ticket->created_at }}
     </div>
+
+    @if (!in_array($ticket->status, ['Closed', 'Cancelled']))
+    <form method="POST" action="{{ route('tickets.track.cancel', $ticket) }}"
+          onsubmit="return confirm('Cancel this ticket? This cannot be undone.');">
+        @csrf
+        <button type="submit">Cancel This Ticket</button>
+    </form>
+    @endif
+    
+    @if ($ticket->status === 'Resolved')
+    <div class="row">
+        <p>IT has marked this ticket as resolved. Is your issue fixed?</p>
+
+        <form method="POST" action="{{ route('tickets.track.approve', $ticket) }}"
+              style="display:inline;"
+              onsubmit="return confirm('Confirm the issue is resolved and close this ticket?');">
+            @csrf
+            <button type="submit">Yes, close it</button>
+        </form>
+
+        <form method="POST" action="{{ route('tickets.track.reject', $ticket) }}"
+              style="display:inline;"
+              onsubmit="return confirm('Reopen this ticket? IT will be notified.');">
+            @csrf
+            <button type="submit">No, still not fixed</button>
+        </form>
+    </div>
+@endif
 
     <h2>Attachments</h2>
 
