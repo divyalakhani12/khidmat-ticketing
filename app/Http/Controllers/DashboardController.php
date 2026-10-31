@@ -635,4 +635,37 @@ class DashboardController extends Controller
                 'Ticket transferred successfully.'
             );
     }
+
+        public function cancel(Ticket $ticket)
+    {
+        $this->abortUnlessAllowed($ticket);
+
+        $user = Auth::user();
+
+        // Staff cancel is an admin action.
+        if (!in_array($user->role, ['super_admin', 'branch_admin'])) {
+            abort(403);
+        }
+
+        if (in_array($ticket->status, ['Closed', 'Cancelled'])) {
+            return redirect()->route('dashboard.tickets.show', $ticket);
+        }
+
+        $oldStatus = $ticket->status;
+
+        $ticket->status = 'Cancelled';
+        $ticket->save();
+
+        TicketActivity::create([
+            'ticket_id' => $ticket->id,
+            'user_id'   => Auth::id(), // the staff member who cancelled
+            'action'    => 'Status Changed',
+            'old_value' => $oldStatus,
+            'new_value' => 'Cancelled',
+        ]);
+
+        return redirect()
+            ->route('dashboard.tickets.show', $ticket)
+            ->with('success', 'Ticket cancelled.');
+    }
 }

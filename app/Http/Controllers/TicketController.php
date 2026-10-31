@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Models\TicketActivity;
 
 class TicketController extends Controller
 {
@@ -290,5 +291,29 @@ if ($sla && $sla->resolution_hours) {
             $attachment->path,
             $attachment->original_name
         );
+    }
+
+        public function cancel(Ticket $ticket)
+    {
+        // Can't cancel something already finished.
+        if (in_array($ticket->status, ['Closed', 'Cancelled'])) {
+            return redirect()->route('tickets.track', $ticket);
+        }
+
+        $oldStatus = $ticket->status;
+
+        $ticket->status = 'Cancelled';
+        $ticket->save();
+
+        TicketActivity::create([
+            'ticket_id'   => $ticket->id,
+            'user_id'     => null,
+            'actor_label' => 'Requester',
+            'action'      => 'Status Changed',
+            'old_value'   => $oldStatus,
+            'new_value'   => 'Cancelled',
+        ]);
+
+        return redirect()->route('tickets.track', $ticket);
     }
 }

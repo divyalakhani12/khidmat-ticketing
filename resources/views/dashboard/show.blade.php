@@ -282,6 +282,16 @@
 
     </form>
 
+    @if (
+    in_array(auth()->user()->role, ['super_admin', 'branch_admin'])
+    && !in_array($ticket->status, ['Closed', 'Cancelled'])
+)
+    <form method="POST" action="{{ route('dashboard.tickets.cancel', $ticket) }}"
+          onsubmit="return confirm('Cancel this ticket?');">
+        @csrf
+        <button type="submit">Cancel Ticket</button>
+    </form>
+@endif
     <hr>
 
     <h3>Attachments</h3>
@@ -404,7 +414,7 @@
 
                 <small>
                     By:
-                    {{ $activity->user?->name ?? 'System' }}
+                    {{ $activity->user?->name ?? ($activity->actor_label ?? 'System') }}
                     |
                     {{ $activity->created_at }}
                 </small>

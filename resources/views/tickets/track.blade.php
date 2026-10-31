@@ -45,6 +45,14 @@
         {{ $ticket->status }}
     </div>
 
+    @if (!in_array($ticket->status, ['Closed', 'Cancelled']))
+    <form method="POST" action="{{ route('tickets.track.cancel', $ticket) }}"
+          onsubmit="return confirm('Cancel this ticket? This cannot be undone.');">
+        @csrf
+        <button type="submit">Cancel This Ticket</button>
+    </form>
+    @endif
+
     <div class="row">
         <span class="label">Priority:</span>
         {{ $ticket->priority }}

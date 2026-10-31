@@ -12,6 +12,7 @@ class TicketActivity extends Model
         'action',
         'old_value',
         'new_value',
+        'actor_label',
     ];
 
     public function user()

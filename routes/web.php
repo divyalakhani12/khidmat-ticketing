@@ -74,3 +74,8 @@ Route::get('/dashboard/settings/sla', [SlaSettingController::class, 'index'])
 Route::post('/dashboard/settings/sla', [SlaSettingController::class, 'update'])
     ->middleware('auth')
     ->name('dashboard.sla.update');
+Route::post('/track/{ticket:tracking_token}/cancel', [TicketController::class, 'cancel'])
+    ->name('tickets.track.cancel');
+Route::post('/dashboard/tickets/{ticket}/cancel', [DashboardController::class, 'cancel'])
+    ->middleware('auth')
+    ->name('dashboard.tickets.cancel');
