@@ -3,14 +3,17 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Ticket extends Model
 {
+    use HasFactory;
     protected $casts = [
     'due_at' => 'datetime',
     'resolved_at' => 'datetime',
     'closed_at' => 'datetime',
     'escalated_at' => 'datetime',
+    'first_response_at' => 'datetime',
 ];
 
     protected $fillable = [
@@ -31,6 +34,9 @@ class Ticket extends Model
         'resolved_at',
         'closed_at',
         'escalated_at',
+        'first_response_at',
+        'merged_into_ticket_id',
+        'merged_at',
     ];
 
     public function activities()
@@ -41,6 +47,26 @@ class Ticket extends Model
     public function comments()
     {
         return $this->hasMany(TicketComment::class);
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function assignedTo()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 
         public function attachments()

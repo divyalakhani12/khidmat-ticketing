@@ -11,4 +11,11 @@ class Branch extends Model
         'is_active',
         'type',
     ];
+
+    protected $casts = ['is_active' => 'boolean'];
+
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
 }

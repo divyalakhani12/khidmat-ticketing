@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             CategorySeeder::class,
             DepartmentSeeder::class,
+            SlaSettingSeeder::class,
         ]);
     }
 }

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'branch_id'])]
+#[Fillable(['name', 'email', 'password', 'role', 'branch_id', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -27,6 +27,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
     public function assignedTickets()
@@ -36,4 +37,9 @@ class User extends Authenticatable
         'ticket_user'
     )->withTimestamps();
 }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
 }

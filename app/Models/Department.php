@@ -11,4 +11,6 @@ class Department extends Model
     'is_active',
     'branch_type',
 ];
+
+    protected $casts = ['is_active' => 'boolean'];
 }

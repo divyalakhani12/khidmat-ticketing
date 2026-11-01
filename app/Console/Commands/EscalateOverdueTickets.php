@@ -19,7 +19,7 @@ class EscalateOverdueTickets extends Command
         // Find tickets that are overdue, still open, and not yet escalated.
         $tickets = Ticket::whereNotNull('due_at')
             ->where('due_at', '<', now())
-            ->whereNotIn('status', ['Resolved', 'Closed'])
+            ->whereNotIn('status', ['Resolved', 'Closed', 'Cancelled', 'Merged'])
             ->whereNull('escalated_at')
             ->get();
 
@@ -34,7 +34,10 @@ class EscalateOverdueTickets extends Command
                 $q->where('role', 'branch_admin')
                     ->where('branch_id', $ticket->branch_id);
             })
-                ->orWhere('role', 'super_admin')
+                ->where('is_active', true)
+                ->orWhere(function ($q) {
+                    $q->where('role', 'super_admin')->where('is_active', true);
+                })
                 ->pluck('email')
                 ->all();
 

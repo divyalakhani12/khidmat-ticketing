@@ -6,6 +6,7 @@ use App\Mail\TicketClosedMail;
 use App\Models\Ticket;
 use App\Models\TicketActivity;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 class AutoCloseResolvedTickets extends Command
@@ -22,22 +23,36 @@ class AutoCloseResolvedTickets extends Command
             ->get();
 
         foreach ($tickets as $ticket) {
+            $closed = false;
+            DB::transaction(function () use (&$closed, $ticket) {
+                $locked = Ticket::whereKey($ticket->id)
+                    ->where('status', 'Resolved')
+                    ->lockForUpdate()
+                    ->first();
 
-            $ticket->status = 'Closed';
-            $ticket->closed_at = now();
-            $ticket->save();
+                if (!$locked) {
+                    return;
+                }
 
-            TicketActivity::create([
-                'ticket_id' => $ticket->id,
-                'user_id' => null,
-                'actor_label' => 'System',
-                'action' => 'Status Changed',
-                'old_value' => 'Resolved',
-                'new_value' => 'Closed',
-            ]);
+                $locked->status = 'Closed';
+                $locked->closed_at = now();
+                $locked->save();
+                $closed = true;
 
-            Mail::to($ticket->requester_email)
-                ->send(new TicketClosedMail($ticket));
+                TicketActivity::create([
+                    'ticket_id' => $locked->id,
+                    'user_id' => null,
+                    'actor_label' => 'System',
+                    'action' => 'Automatically Closed',
+                    'old_value' => 'Resolved',
+                    'new_value' => 'Closed',
+                ]);
+            });
+
+            if ($closed) {
+                Mail::to($ticket->requester_email)
+                    ->send(new TicketClosedMail($ticket));
+            }
 
             $this->info(
                 "Auto-closed ticket {$ticket->ticket_number}"

@@ -4,6 +4,7 @@ use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\SlaSettingController;
+use App\Http\Controllers\AdminController;
 
 Route::get('/', function () {
     return redirect()->route('tickets.create');
@@ -44,16 +45,31 @@ Route::post('/logout', [AuthController::class, 'logout'])
 Route::post(
     '/dashboard/tickets/{ticket}/merge',
     [DashboardController::class, 'merge']
-)->name('dashboard.tickets.merge');
-
-Route::post(
-    '/dashboard/tickets/{ticket}/merge',
-    [DashboardController::class, 'merge']
-)->name('dashboard.tickets.merge');
+)->middleware('auth')->name('dashboard.tickets.merge');
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware('auth')
     ->name('dashboard');
+
+Route::get('/dashboard/reports', [DashboardController::class, 'report'])
+    ->middleware('auth')
+    ->name('dashboard.reports');
+
+Route::get('/dashboard/tickets-export', [DashboardController::class, 'export'])
+    ->middleware('auth')
+    ->name('dashboard.export');
+
+Route::prefix('dashboard/admin')->middleware('auth')->group(function () {
+    Route::get('/', [AdminController::class, 'index'])->name('admin.index');
+    Route::post('/users', [AdminController::class, 'storeUser'])->name('admin.users.store');
+    Route::put('/users/{user}', [AdminController::class, 'updateUser'])->name('admin.users.update');
+    Route::post('/branches', [AdminController::class, 'storeBranch'])->name('admin.branches.store');
+    Route::put('/branches/{branch}', [AdminController::class, 'updateBranch'])->name('admin.branches.update');
+    Route::post('/departments', [AdminController::class, 'storeDepartment'])->name('admin.departments.store');
+    Route::put('/departments/{department}', [AdminController::class, 'updateDepartment'])->name('admin.departments.update');
+    Route::post('/categories', [AdminController::class, 'storeCategory'])->name('admin.categories.store');
+    Route::put('/categories/{category}', [AdminController::class, 'updateCategory'])->name('admin.categories.update');
+});
 
 Route::post('/dashboard/tickets/{ticket}/priority', [DashboardController::class, 'updatePriority'])
     ->middleware('auth')
@@ -70,6 +86,10 @@ Route::post('/dashboard/tickets/{ticket}/status', [DashboardController::class, '
 Route::get('/dashboard/tickets/{ticket}', [DashboardController::class, 'show'])
     ->middleware('auth')
     ->name('dashboard.tickets.show');
+
+Route::get('/dashboard/tickets/{ticket}/messages', [DashboardController::class, 'getMessages'])
+    ->middleware('auth')
+    ->name('dashboard.tickets.messages.get');
 
 Route::post('/dashboard/tickets/{ticket}/assign', [DashboardController::class, 'assign'])
     ->middleware('auth')

@@ -29,7 +29,7 @@
         </p>
 
         <p>
-            <a href="{{ route('tickets.track', $ticket) }}">
+            <a href="{{ route('tickets.track', ['ticket' => $ticket->tracking_token]) }}">
                 Track Ticket {{ $ticket->ticket_number }}
             </a>
         </p>
@@ -41,7 +41,7 @@
         </p>
 
         <p>
-            <a href="{{ route('dashboard.tickets.show', $ticket) }}">
+            <a href="{{ route('dashboard.tickets.show', ['ticket' => $ticket->id]) }}">
                 Open Ticket {{ $ticket->ticket_number }}
             </a>
         </p>

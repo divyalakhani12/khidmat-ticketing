@@ -1,58 +1,76 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Zindagi Trust IT Ticketing System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel IT support ticketing for Head Office, School 1, and School 2.
 
-## About Laravel
+## Local setup
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Use Laragon for MySQL and Apache, then run from the project directory:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```powershell
+composer install
+copy .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+php artisan serve
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Open `http://127.0.0.1:8000/submit-ticket`.
 
-## Contributing
+Seeded staff accounts use the password `password` and must be changed before shared or production use:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- `super@zindagitrust.org` — super admin
+- `ho.admin@zindagitrust.org` — Head Office branch admin
+- `s1.admin@zindagitrust.org` — School 1 branch admin
+- `s2.admin@zindagitrust.org` — School 2 branch admin
+- `ho.tech@zindagitrust.org` — Head Office technician
+- `s1.tech@zindagitrust.org` — School 1 technician
+- `s2.tech@zindagitrust.org` — School 2 technician
 
-## Code of Conduct
+## Main workflows
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+- Public requester submission with secure tracking token.
+- Private attachment downloads for requesters and authorized staff.
+- Branch-isolated dashboard access.
+- Multiple technician assignment through `ticket_user`.
+- Public requester chat and private staff notes.
+- Resolution approval/rejection, cancellation, SLA escalation, and automatic closure.
+- Transactional recurring-ticket merge.
+- Super-admin management at `/dashboard/admin`.
+- Reports at `/dashboard/reports` and CSV export at `/dashboard/tickets-export`.
 
-## Security Vulnerabilities
+## Mail
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+For Mailpit, configure local SMTP values in `.env`:
 
-## License
+```dotenv
+MAIL_MAILER=smtp
+MAIL_HOST=127.0.0.1
+MAIL_PORT=1025
+MAIL_USERNAME=null
+MAIL_PASSWORD=null
+MAIL_ENCRYPTION=null
+MAIL_FROM_ADDRESS=it@zindagitrust.org
+MAIL_FROM_NAME="Zindagi Trust IT Support"
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Production should use approved Google Workspace SMTP credentials or relay. Never commit credentials or a populated `.env` file.
+
+## Scheduled operations
+
+The scheduler runs `tickets:escalate` every fifteen minutes and `tickets:auto-close` daily. Configure the host scheduler to run `php artisan schedule:run` every minute.
+
+## Testing
+
+Run:
+
+```powershell
+php artisan test
+```
+
+Feature tests use SQLite in-memory storage. Ensure the PHP CLI has `pdo_sqlite` and `sqlite3` enabled, or configure a dedicated test MySQL database.
+
+The first-response metric is measured from ticket creation until the first public staff message. Internal notes do not count.
+
+## Security
+
+Requester access is token-based and does not use application login. Staff authorization is enforced server-side by role, branch, and technician assignment. Historical records are retained; operational entities are deactivated rather than destructively deleted.

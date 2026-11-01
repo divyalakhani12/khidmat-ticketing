@@ -338,7 +338,7 @@
         return div.innerHTML;
     }
 
-    srefreshRequesterChat();
+    refreshRequesterChat();
     setInterval(refreshRequesterChat, 3000);
 </script>
 </body>

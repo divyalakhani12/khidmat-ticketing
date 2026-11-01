@@ -148,7 +148,6 @@
         name="technicians[]"
         multiple
         size="6"
-        required
         style="
             min-width: 320px;
             margin-top: 10px;
@@ -226,6 +225,7 @@
 
         <hr>
 
+        @if (auth()->user()->role === 'super_admin')
         <h3>Transfer Branch</h3>
 
         <form method="POST"
@@ -235,7 +235,7 @@
 
             <select name="branch_id" required>
 
-                @foreach (\App\Models\Branch::where('is_active', true)->get() as $branch)
+                @foreach ($branches as $branch)
 
                     <option
                         value="{{ $branch->id }}"
@@ -253,6 +253,8 @@
             </button>
 
         </form>
+
+        @endif
 
         <hr>
 
@@ -281,21 +283,7 @@
                 <select name="main_ticket_id" required style="min-width: 420px;">
                     <option value="">-- Select Main Ticket --</option>
 
-                    @foreach (
-                        \App\Models\Ticket::where('id', '!=', $ticket->id)
-                        ->where('requester_email', $ticket->requester_email)
-                        ->whereIn('status', ['Resolved', 'Closed'])
-                        ->when(
-                            auth()->user()->role === 'branch_admin',
-                            fn ($query) => $query->where(
-                                'branch_id',
-                                auth()->user()->branch_id
-                            )
-                        )
-                        ->latest()
-                        ->get()
-                        as $mainTicket
-                    )
+                    @foreach ($mergeCandidates as $mainTicket)
 
                         <option value="{{ $mainTicket->id }}">
                             {{ $mainTicket->ticket_number }}
@@ -565,6 +553,8 @@
 
 <h4>Internal Notes</h4>
 
+<div id="internal-ticket-comments">
+
 @forelse (
     $comments
         ->where('is_public', false)
@@ -600,6 +590,8 @@
     <p>No internal comments yet.</p>
 
 @endforelse
+
+</div>
 
 <hr>
 
@@ -655,9 +647,7 @@
 <script>
     async function refreshRequesterChat() {
         try {
-            const response = await fetch(
-                "{{ route('tickets.track.messages.get', $ticket) }}"
-            );
+            const response = await fetch("{{ route('dashboard.tickets.messages.get', $ticket) }}");
 
             if (!response.ok) {
                 return;
@@ -672,33 +662,27 @@
                 return;
             }
 
-            if (messages.length === 0) {
+            const publicMessages = messages.filter(message => message.is_public);
+            const internalMessages = messages.filter(message => !message.is_public);
+
+            if (publicMessages.length === 0) {
                 container.innerHTML =
                     '<p>No chat messages yet.</p>';
-                return;
+            } else {
+                container.innerHTML = publicMessages.map(message => {
+                    const sender = escapeHtml(message.sender_name);
+                    const body = escapeHtml(message.body);
+                    const time = escapeHtml(message.created_at);
+                    return `<div style="padding:12px;margin-bottom:10px;background:#eef4ff;border-radius:8px"><strong>${sender}</strong><br>${body}<br><small>${time}</small></div>`;
+                }).join('');
             }
 
-            container.innerHTML = messages.map(message => {
-
-                const sender = escapeHtml(message.sender_name);
-                const body = escapeHtml(message.body);
-                const time = escapeHtml(message.created_at);
-
-                return `
-                    <div style="
-                        padding: 12px;
-                        margin-bottom: 10px;
-                        background: #eef4ff;
-                        border-radius: 8px;
-                    ">
-                        <strong>${sender}</strong>
-                        <br>
-                        ${body}
-                        <br>
-                        <small>${time}</small>
-                    </div>
-                `;
-            }).join('');
+            const internalContainer = document.getElementById('internal-ticket-comments');
+            if (internalContainer) {
+                internalContainer.innerHTML = internalMessages.length === 0
+                    ? '<p>No internal comments yet.</p>'
+                    : internalMessages.map(message => `<div style="padding:12px;margin-bottom:10px;background:#fff8e1;border-radius:8px"><strong>${escapeHtml(message.sender_name)}</strong><br>${escapeHtml(message.body)}<br><small>${escapeHtml(message.created_at)}</small></div>`).join('');
+            }
 
         } catch (error) {
             console.error('Chat refresh failed:', error);

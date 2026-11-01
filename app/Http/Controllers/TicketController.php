@@ -18,8 +18,10 @@ use App\Models\TicketComment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class TicketController extends Controller
 {
@@ -85,17 +87,17 @@ class TicketController extends Controller
 
             'department_id' => [
                 'nullable',
-                'exists:departments,id',
+                Rule::exists('departments', 'id')->where('is_active', true),
             ],
 
             'branch_id' => [
                 'required',
-                'exists:branches,id',
+                Rule::exists('branches', 'id')->where('is_active', true),
             ],
 
             'category_id' => [
                 'required',
-                'exists:categories,id',
+                Rule::exists('categories', 'id')->where('is_active', true),
             ],
 
             'priority' => [
@@ -164,6 +166,15 @@ class TicketController extends Controller
             }
         }
 
+        $branch = Branch::findOrFail($validated['branch_id']);
+        $category = Category::findOrFail($validated['category_id']);
+
+        if (!$branch->is_active || !$category->is_active) {
+            return back()->withErrors([
+                'branch_id' => 'The selected branch or category is no longer active.',
+            ])->withInput();
+        }
+
         unset($validated['attachments']);
 
         /*
@@ -197,6 +208,7 @@ class TicketController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        $ticket = DB::transaction(function () use ($validated, $dueAt, $request) {
         $ticket = Ticket::create([
             ...$validated,
 
@@ -245,6 +257,9 @@ class TicketController extends Controller
                 ]);
         }
 
+        return $ticket;
+        });
+
         /*
         |--------------------------------------------------------------------------
         | Email Requester
@@ -269,6 +284,7 @@ class TicketController extends Controller
                 'role',
                 'branch_admin'
             )
+            ->where('is_active', true)
             ->where(
                 'branch_id',
                 $ticket->branch_id
@@ -478,8 +494,7 @@ class TicketController extends Controller
             'actor_label' =>
                 'Requester',
 
-            'action' =>
-                'Status Changed',
+            'action' => 'Requester Cancelled Ticket',
 
             'old_value' =>
                 $oldStatus,
@@ -543,8 +558,7 @@ class TicketController extends Controller
             'actor_label' =>
                 'Requester',
 
-            'action' =>
-                'Status Changed',
+            'action' => 'Requester Approved Resolution',
 
             'old_value' =>
                 $oldStatus,
@@ -628,8 +642,7 @@ class TicketController extends Controller
             'actor_label' =>
                 'Requester',
 
-            'action' =>
-                'Status Changed',
+            'action' => 'Requester Rejected Resolution',
 
             'old_value' =>
                 $oldStatus,
@@ -669,6 +682,7 @@ class TicketController extends Controller
                 'role',
                 'branch_admin'
             )
+            ->where('is_active', true)
             ->where(
                 'branch_id',
                 $ticket->branch_id

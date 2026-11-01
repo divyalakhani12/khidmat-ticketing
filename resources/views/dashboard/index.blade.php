@@ -255,6 +255,10 @@
 
         @if (auth()->user()->role === 'super_admin')
             <a href="{{ route('dashboard.sla') }}" style="margin-right:15px;">SLA Settings</a>
+            <a href="{{ route('admin.index') }}" style="margin-right:15px;">Administration</a>
+        @endif
+        @if (in_array(auth()->user()->role, ['super_admin', 'branch_admin']))
+            <a href="{{ route('dashboard.reports') }}" style="margin-right:15px;">Reports</a>
         @endif
 
         <form method="POST" action="{{ route('logout') }}">
@@ -366,6 +370,18 @@
             @endforeach
 
         </select>
+
+        <select name="department_id">
+            <option value="">All Departments</option>
+            @foreach ($departments as $department)
+                <option value="{{ $department->id }}" @selected(request('department_id') == $department->id)>
+                    {{ $department->name }}
+                </option>
+            @endforeach
+        </select>
+
+        <input type="date" name="date_from" value="{{ request('date_from') }}" aria-label="From date">
+        <input type="date" name="date_to" value="{{ request('date_to') }}" aria-label="To date">
 
 
         <select name="priority">
@@ -610,6 +626,8 @@
     </tbody>
 
 </table>
+
+{{ $tickets->links() }}
 
 </body>
 </html>
